@@ -1,0 +1,98 @@
+<script src="simpletest.js"></script>
+
+<script>
+
+(function(){
+    var libraryStorage = {};
+    var dependentLibraries = {}; //stor each library's dependent library names
+    var callbacks = {}; //store callback function for librarys that depend on other lirbaries
+	function librarySystem(libraryName, dependencies,callback){
+        // when user of librarySystem is asking for a particular library
+		if (arguments.length===1){
+            // Check if this library has any dependencies
+            if(dependentLibraries[libraryName]===undefined){
+                return libraryStorage[libraryName];
+            } else {
+                //User is asking for a library with depencies
+                // Get an array of the dependent libraries 
+                var libraries = dependentLibraries[libraryName].map(function(library){
+                    return libraryStorage[library];
+                });
+                // Get the callback of this library and pass in the dependent libraries
+                return callbacks[libraryName].apply(null, libraries);
+            }
+        
+        // User is trying to store a library 
+		} else if (arguments.length>1){
+            // this library has no dependencies
+			if (dependencies.length===0){
+				libraryStorage[libraryName]=callback();
+			} else {
+                // this library has some depencies, store the names of the dependent libraries
+                dependentLibraries[libraryName]=dependencies;
+                // store the callback of the library for later, when user wants to retrieve it
+                callbacks[libraryName]=callback;
+			}
+		}
+    }
+    window.librarySystem=librarySystem;
+
+})();
+
+
+
+tests({
+  'It should save a library without any dependent libraries': function(){
+
+    librarySystem('name', [], function(){
+        return 'Gordon';
+    });
+    
+    eq(librarySystem('name'), 'Gordon');
+  },
+  'It should save a library with dependent libraries': function(){
+    librarySystem('name', [], function(){
+        return 'Gordon';
+    });
+    librarySystem('company', [], function(){
+        return 'Watch and Code';
+    });
+    librarySystem('workBlurb', ['name', 'company'], function(name, company) {
+        return name + ' works at ' + company;
+    });
+
+    eq(librarySystem('workBlurb'), 'Gordon works at Watch and Code');
+  }, 
+  'It should save a library with dependent libraries in any order': function(){
+    librarySystem('workBlurb2', ['name2', 'company2'], function(name2, company2) {
+        return name2 + ' works at ' + company2;
+    });
+    librarySystem('name2', [], function(){
+        return 'Alex';
+    });
+    librarySystem('company2', [], function(){
+        return 'Telstra';
+    });
+    eq(librarySystem('workBlurb2'), 'Alex works at Telstra');
+  }, 
+  'Callback function for each library should only run once': function(){
+    var numCallbackRun=0;
+    librarySystem('workBlurb3', ['name3', 'company3'], function(name3, company3) {
+        return name3 + ' works at ' + company3;
+    });
+    librarySystem('name3', [], function(){
+        return 'Jenny';
+    });
+    librarySystem('company3', [], function(){
+        numCallbackRun++;
+        return 'FinancePath';
+    });
+    eq(librarySystem('workBlurb3'), 'Jenny works at FinancePath');
+    
+    librarySystem('workBlurb3');
+    librarySystem('workBlurb3');
+    eq(numCallbackRun, 1);
+  }
+  
+});
+</script>
